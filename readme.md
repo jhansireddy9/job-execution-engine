@@ -2,167 +2,110 @@
 
 ## Overview
 
-This project is a simple backend system to handle long-running jobs.
-It allows users to submit jobs, track their status, cancel them, and ensures that jobs are not lost even if something goes wrong (like a crash).
+This project is a backend system to handle long-running jobs reliably.
+It allows users to create jobs, track their status, cancel them, and ensures jobs are not lost even if the system crashes.
 
-The main goal of this project was to focus on **correctness and reliability**, rather than just making something that works in ideal conditions.
+The focus was on building a **correct and reliable system**, not just a working one.
 
+---
 
-## What I Built
+## Setup Instructions
 
-### Core Functionality
+1. Install dependencies:
+   pip install -r requirements.txt
 
-* Create jobs using an API
-* Background worker that processes jobs
-* Track job status (QUEUED → RUNNING → COMPLETED / FAILED / CANCELLED)
+2. Configure environment variables:
+   Create a `.env` file and add:
+   DATABASE_URL=postgresql://postgres:password@localhost:5432/jobdb
 
+3. Run the server:
+   uvicorn app.main:app --reload
 
-### Reliability Features
+4. Open API docs:
+   http://127.0.0.1:8000/docs
 
-* **Retry mechanism**
-  If a job fails, it is retried up to a limit
+---
 
-* **Stuck job recovery**
-  If a job is stuck in RUNNING (e.g., worker crash), it is automatically re-queued
+## Features Implemented
 
-* **Priority handling**
-  Jobs with higher priority are picked first (among queued jobs)
+### Level 1 (Core)
 
-* **Cancellation support**
-  Jobs can be cancelled while running
+* Job creation and status tracking
+* Background worker execution
+* Job lifecycle management (QUEUED → RUNNING → COMPLETED / FAILED / CANCELLED)
 
-* **Controlled execution**
-  Only one job runs at a time to avoid race conditions
+---
 
+### Level 2 (Reliability)
 
-## Level 3 (Agent Planning)
+* Priority-based job scheduling
+* Retry mechanism for failed jobs
+* Stuck job recovery (detects and requeues jobs)
+* Cancellation support
+* Controlled execution (only one job at a time)
 
-I added a simple endpoint:
+---
 
-```
-POST /agent/plan
-```
+### Level 3 (Partial)
 
-This takes a natural language instruction and converts it into a sequence of tasks with dependencies.
-
-### Example:
-
-Input:
-
-```
-run simulation then process results then generate report
-```
-
-Output:
-
-```
-[
-  run_simulation → process_results → generate_report
-]
-```
-
-This is a simplified version of a DAG (Directed Acyclic Graph), where each step depends on the previous one.
+* Added `/agent/plan` endpoint
+* Converts natural language instructions into a sequence of tasks
+* Generates a simple dependency chain (linear workflow)
 
 ---
 
 ## Design Decisions
 
-* I used a **simple async worker loop** instead of tools like Celery or Redis
-  → This keeps the system easy to understand and control
-
-* All job state is stored in the database
-  → So jobs are not lost even if the system crashes
-
-* I used **non-preemptive scheduling**
-  → Once a job starts, it is not interrupted
-  → Priority only affects queued jobs
-
-* I intentionally kept the system simple rather than overengineering
+* Used a simple async worker instead of Celery/Redis to keep the system easy to understand
+* Stored all job states in the database to ensure reliability
+* Used non-preemptive scheduling (running jobs are not interrupted)
+* Limited execution to one job at a time to avoid race conditions
 
 ---
 
 ## Failure Handling
 
-* If a worker crashes → stuck jobs are detected and retried
-* If a job fails → retried up to max limit
-* Duplicate execution is avoided using job state
+* Worker crash → stuck jobs are detected and retried
+* Job failure → retried up to max limit
+* Duplicate execution avoided using job states
 
 ---
 
-## How to Run
+## Limitations
 
-1. Install dependencies:
-
-```
-pip install -r requirements.txt
-```
-
-2. Start server:
-
-```
-uvicorn app.main:app --reload
-```
-
-3. Open:
-
-```
-http://127.0.0.1:8000/docs
-```
-
----
-
-## Example APIs
-
-* Create job:
-
-```
-POST /jobs?priority=10
-```
-
-* Get status:
-
-```
-GET /jobs/{job_id}
-```
-
-* Cancel job:
-
-```
-POST /jobs/{job_id}/cancel
-```
-
-* Generate plan:
-
-```
-POST /agent/plan
-```
+* Uses polling instead of a distributed queue
+* Only supports a single worker (no parallel execution)
+* Level 3 supports only linear task chains (not full DAG execution)
 
 ---
 
 ## LLM Usage
 
-I used ChatGPT during development to:
+I used ChatGPT to:
 
-* understand system design concepts (workers, retries, etc.)
-* debug async issues
-* think through failure scenarios
 
-All final code and logic were implemented and tested manually.
+I used ChatGPT as a support tool during development, mainly for:
 
+* Debugging an issue where the worker was not running due to incorrect startup handling  
+* Identifying and fixing blocking calls (`time.sleep`) by replacing them with `asyncio.sleep`  
+* Understanding how to safely handle job retries and failure scenarios  
+* Clarifying the behavior of priority scheduling, especially the difference between queued and running jobs  
+
+All implementations were tested and adapted manually to fit the system design.
 ---
 
-## What I Would Improve
+## What I Would Do Differently
 
-If I had more time, I would:
+With more time, I would:
 
-* extend this into a full DAG execution system
-* allow multiple workers (parallel processing)
-* use Redis/Celery for distributed execution
-* add better logging and monitoring
+* implement a full DAG-based execution system
+* allow parallel task execution
+* use Celery and Redis for distributed workers
+* add monitoring and logging
 
 ---
 
 ## Final Thoughts
 
-This project helped me understand how real backend systems handle failures and long-running tasks.
-I focused on making the system reliable and easy to reason about rather than adding unnecessary complexity.
+This project helped me understand how backend systems handle long-running tasks and failures.
+The focus was on reliability, simplicity, and clear system behavior.
